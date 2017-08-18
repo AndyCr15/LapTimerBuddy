@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "439634644126",
+    "firebase_url": "https://laptimerbuddy.firebaseio.com",
+    "project_id": "laptimerbuddy",
+    "storage_bucket": "laptimerbuddy.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:439634644126:android:0cfd8d25c9807dd3",
+        "android_client_info": {
+          "package_name": "com.androidandyuk.laptimerbuddy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "439634644126-5op6tmo5uect8u23qb4o64gc80tk9cs0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.androidandyuk.laptimerbuddy",
+            "certificate_hash": "4fc4e949725f2ecef655554c896ef128275e2d75"
+          }
+        },
+        {
+          "client_id": "439634644126-tq7nnduvnpfk7uvn86k48bond22rs35g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCP_gpZFOn18WoNCgNeKUzH0XnUemRQOfQ"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "439634644126-tq7nnduvnpfk7uvn86k48bond22rs35g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
