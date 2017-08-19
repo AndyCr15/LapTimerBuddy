@@ -22,10 +22,12 @@ public class MyReceiver extends BroadcastReceiver {
 
         Log.i("thisLat(s)" + thisLat,"thisLon(s)" + thisLon);
         Location thisLocation = new Location("50,1");
+        MainActivity.lastKnownLocation = thisLocation;
         thisLocation.setLatitude(Double.parseDouble(thisLat));
         thisLocation.setLongitude(Double.parseDouble(thisLon));
         // add a new market to the current session
-        new MainActivity().addMarker(thisLocation);
-
+        if(MainActivity.tracking) {
+            new MainActivity().addMarker(thisLocation);
+        }
     }
 }

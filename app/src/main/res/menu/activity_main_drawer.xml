@@ -1,35 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_settings"
-            android:icon="@drawable/ic_settings"
+            android:icon="@drawable/settings"
             android:title="Settings" />
         <item
-            android:id="@+id/nav_logout"
-            android:icon="@drawable/ic_menu_gallery"
-            android:title="Gallery" />
+            android:id="@+id/nav_map"
+            android:icon="@drawable/flag"
+            android:title="Set Finish" />
         <item
-            android:id="@+id/nav_slideshow"
-            android:icon="@drawable/ic_menu_slideshow"
-            android:title="Slideshow" />
-        <item
-            android:id="@+id/nav_manage"
-            android:icon="@drawable/ic_menu_manage"
-            android:title="Tools" />
+            android:id="@+id/nav_social"
+            android:icon="@drawable/social"
+            android:title="Get Social" />
     </group>
 
-    <item android:title="Communicate">
+    <item android:title="Sessions">
         <menu>
             <item
-                android:id="@+id/nav_share"
-                android:icon="@drawable/ic_menu_share"
-                android:title="Share" />
+                android:id="@+id/nav_markers"
+                android:icon="@drawable/timer"
+                android:title="View" />
             <item
-                android:id="@+id/nav_send"
-                android:icon="@drawable/ic_menu_send"
-                android:title="Send" />
+                android:id="@+id/nav_restore"
+                android:icon="@drawable/load"
+                android:title="Restore" />
+            <item
+                android:id="@+id/nav_delete"
+                android:icon="@drawable/bin"
+                android:title="Delete" />
         </menu>
     </item>
 

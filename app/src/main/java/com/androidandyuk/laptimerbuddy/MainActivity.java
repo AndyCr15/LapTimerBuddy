@@ -1,6 +1,8 @@
 package com.androidandyuk.laptimerbuddy;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -25,6 +27,9 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.google.android.gms.maps.model.LatLng;
 
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -35,8 +40,16 @@ import java.util.TimerTask;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    public static SharedPreferences sharedPreferences;
+    public static SharedPreferences.Editor ed;
+
     public static Boolean tracking = false;
     public static Session currentSession;
+
+    public static LatLng finishLine;
+    public static LatLng firstCorner;
+    public static Double finishDirection;
+    public static Boolean finishSet = false;
 
     public static SQLiteDatabase lapTimerDB;
 
@@ -63,8 +76,12 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        lastKnownLocation = new Location("1,50");
+        sharedPreferences = this.getSharedPreferences("com.androidandyuk.laptimerbuddy", Context.MODE_PRIVATE);
+        ed = sharedPreferences.edit();
 
+        loadSettings();
+
+        lastKnownLocation = new Location("1,50");
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -128,7 +145,7 @@ public class MainActivity extends AppCompatActivity
 
                             Long currentTimer = System.currentTimeMillis() - currentSession.markers.get(1).timeStamp;
                             TextView timer = (TextView) findViewById(R.id.timer);
-                            TextView direction = (TextView) findViewById(R.id.direction);
+                            TextView direction = (TextView) findViewById(R.id.directionTV);
                             timer.setText(millisInMinutes(currentTimer));
                             Double dir = direction(currentSession.markers.get(currentSession.markers.size() - 1).location, currentSession.markers.get(currentSession.markers.size() - 2).location);
                             direction.setText(Html.fromHtml("Direction: " + oneDecimal.format(dir) + "<sup><small>o</small></sup>"));
@@ -182,11 +199,25 @@ public class MainActivity extends AppCompatActivity
 
     }
 
-    public Double direction(Location locB, Location locA) {
+    public static Double direction(Location locB, Location locA) {
         Double lat1 = locA.getLatitude();
         Double lon1 = locA.getLongitude();
         Double lat2 = locB.getLatitude();
         Double lon2 = locB.getLongitude();
+
+        Double dLon = Math.toRadians(lon2 - lon1);
+        Double dPhi = Math.log(
+                Math.tan(Math.toRadians(lat2) / 2 + Math.PI / 4) / Math.tan(Math.toRadians(lat1) / 2 + Math.PI / 4));
+        if (Math.abs(dLon) > Math.PI)
+            dLon = dLon > 0 ? -(2 * Math.PI - dLon) : (2 * Math.PI + dLon);
+        return ToBearing(Math.atan2(dLon, dPhi));
+    }
+
+    public static Double direction(LatLng locB, LatLng locA) {
+        Double lat1 = locA.latitude;
+        Double lon1 = locA.longitude;
+        Double lat2 = locB.latitude;
+        Double lon2 = locB.longitude;
 
         Double dLon = Math.toRadians(lon2 - lon1);
         Double dPhi = Math.log(
@@ -391,6 +422,36 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    public static void loadSettings() {
+
+        Log.i("loadSettings","Running");
+
+        Double latitude = Double.parseDouble(sharedPreferences.getString("finishLineLat", "0"));
+        Double longitude = Double.parseDouble(sharedPreferences.getString("finishLineLon", "0"));
+        finishLine = new LatLng(latitude, longitude);
+
+        Double fclatitude = Double.parseDouble(sharedPreferences.getString("finishLineLat", "0"));
+        Double fclongitude = Double.parseDouble(sharedPreferences.getString("finishLineLon", "0"));
+        firstCorner = new LatLng(fclatitude, fclongitude);
+
+    }
+
+    public static void saveSettings() {
+
+        Log.i("saveSettings","Running");
+
+        Double finLat = finishLine.latitude;
+        Double finLon = finishLine.longitude;
+        ed.putString("finishLineLat", finLat.toString()).apply();
+        ed.putString("finishLineLon", finLon.toString()).apply();
+
+        Double corLat = firstCorner.latitude;
+        Double corLon = firstCorner.longitude;
+        ed.putString("firstCornerLat", corLat.toString()).apply();
+        ed.putString("firstCornerLon", corLon.toString()).apply();
+
+    }
+
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -431,15 +492,31 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.nav_settings) {
             // Handle the camera action
-        } else if (id == R.id.nav_logout) {
+        } else if (id == R.id.nav_markers) {
 
-        } else if (id == R.id.nav_slideshow) {
+        } else if (id == R.id.nav_map) {
 
-        } else if (id == R.id.nav_manage) {
+            Intent intent = new Intent(getApplicationContext(), MapsActivity.class);
+            intent.putExtra("Type", "Finish");
+            startActivity(intent);
 
-        } else if (id == R.id.nav_share) {
+        } else if (id == R.id.nav_social) {
 
-        } else if (id == R.id.nav_send) {
+            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
+
+        } else if (id == R.id.nav_markers) {
+
+            Intent intent = new Intent(getApplicationContext(), MapsActivity.class);
+            intent.putExtra("Type", "Markers");
+            startActivity(intent);
+
+        } else if (id == R.id.nav_restore) {
+
+            // loadDB
+
+        } else if (id == R.id.nav_delete) {
+
+            // delete all saves sessions
 
         }
 
@@ -491,4 +568,14 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    @Override
+    protected void onPause() {
+        saveSettings();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
 }

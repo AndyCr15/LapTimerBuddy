@@ -3,6 +3,7 @@
     package="com.androidandyuk.laptimerbuddy">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
         android:allowBackup="true"
@@ -11,24 +12,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCJk1YXS5SSEiFBR4wT20Y6D8sTH7bPAFs" />
+
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"
-            android:theme="@style/AppTheme.NoActionBar">
+            android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MapsActivity"
+            android:theme="@style/AppTheme" />
 
         <service
             android:name=".MyService"
-            android:process=":my_service"/>
-
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyA22EmKKcVvzOOtJnp8lzlU4dYNzm90qTo" />
+            android:process=":my_service" />
 
         <receiver
             android:name=".MyReceiver"
