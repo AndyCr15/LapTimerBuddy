@@ -1,6 +1,7 @@
 package com.androidandyuk.laptimerbuddy;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -20,6 +21,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
@@ -37,6 +39,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import static com.androidandyuk.laptimerbuddy.Session.sessionCount;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -71,6 +75,10 @@ public class MainActivity extends AppCompatActivity
     public static Location lastKnownLocation;
 
     public static ArrayList<Session> sessions = new ArrayList<>();
+    public static int activeSession;
+
+    public static Double conversion = 0.621371;
+    public static String unit = "Miles";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -501,8 +509,10 @@ public class MainActivity extends AppCompatActivity
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.nav_settings) {
-            // Handle the camera action
+        if (id == R.id.nav_timer) {
+
+//            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+//            startActivity(intent);
 
         } else if (id == R.id.nav_map) {
 
@@ -514,18 +524,43 @@ public class MainActivity extends AppCompatActivity
 
             Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
 
-        } else if (id == R.id.nav_markers) {
+        } else if (id == R.id.nav_settings) {
+
+            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
+
+        } else if (id == R.id.nav_sessions) {
 
             Intent intent = new Intent(getApplicationContext(), SessionsActivity.class);
             startActivity(intent);
 
+        } else if (id == R.id.nav_backup) {
+
+            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
+            // saveDB
+
         } else if (id == R.id.nav_restore) {
 
+            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
             // loadDB
 
         } else if (id == R.id.nav_delete) {
 
-            // delete all saves sessions
+            new AlertDialog.Builder(MainActivity.this)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setTitle("Are you sure?")
+                    .setMessage("You're about to delete all your sessions forever...")
+                    .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Log.i("Removing", "Sessions");
+                            sessions.clear();
+                            sessionCount = 0;
+                            Snackbar.make(findViewById(R.id.sessions_ListView), "Sessions Deleted", Snackbar.LENGTH_SHORT)
+                                    .setAction("Action", null).show();
+                        }
+                    })
+                    .setNegativeButton("No", null)
+                    .show();
 
         }
 

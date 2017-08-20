@@ -4,9 +4,9 @@
 
     <group android:checkableBehavior="single">
         <item
-            android:id="@+id/nav_settings"
-            android:icon="@drawable/settings"
-            android:title="Settings" />
+            android:id="@+id/nav_timer"
+            android:icon="@drawable/timer"
+            android:title="Timer" />
         <item
             android:id="@+id/nav_map"
             android:icon="@drawable/flag"
@@ -15,14 +15,22 @@
             android:id="@+id/nav_social"
             android:icon="@drawable/social"
             android:title="Get Social" />
+        <item
+            android:id="@+id/nav_settings"
+            android:icon="@drawable/settings"
+            android:title="Settings" />
     </group>
 
     <item android:title="Sessions">
         <menu>
             <item
-                android:id="@+id/nav_markers"
-                android:icon="@drawable/timer"
+                android:id="@+id/nav_sessions"
+                android:icon="@drawable/list"
                 android:title="View" />
+            <item
+                android:id="@+id/nav_backup"
+                android:icon="@drawable/disc"
+                android:title="Backup" />
             <item
                 android:id="@+id/nav_restore"
                 android:icon="@drawable/load"

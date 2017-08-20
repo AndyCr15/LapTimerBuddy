@@ -43,7 +43,8 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".SessionsActivity"></activity>
+        <activity android:name=".SessionsActivity" />
+        <activity android:name=".DetailActivity"></activity>
     </application>
 
 </manifest>
