@@ -13,8 +13,8 @@ public class Session {
     ArrayList<Marker> markers = new ArrayList<>();
 
     public Session() {
-        this.ID = sessionCount;
         sessionCount ++;
+        this.ID = sessionCount;
     }
 
     public Session(int thisId, String thisNotes) {

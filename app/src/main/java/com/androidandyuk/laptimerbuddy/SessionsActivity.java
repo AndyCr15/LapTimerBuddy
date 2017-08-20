@@ -32,7 +32,7 @@ import static com.androidandyuk.laptimerbuddy.Session.sessionCount;
 
 public class SessionsActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
-    static MySessionAdapter myAdapter;
+    static MySessionAdapter mySessionAdapter;
     ListView listView;
 
     @Override
@@ -100,12 +100,13 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
         Log.i("Sessions", "Initiating List");
         listView = findViewById(R.id.sessions_ListView);
 
-        myAdapter = new MySessionAdapter(sessions);
+        mySessionAdapter = new MySessionAdapter(sessions);
 
-        listView.setAdapter(myAdapter);
+        listView.setAdapter(mySessionAdapter);
 
     }
 
+    @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
@@ -128,7 +129,8 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
         } else if (id == R.id.nav_settings) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(intent);
 
         } else if (id == R.id.nav_sessions) {
 
@@ -157,8 +159,7 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
                             Log.i("Removing", "Sessions");
                             sessions.clear();
                             sessionCount = 0;
-                            initiateList();
-                            Snackbar.make(findViewById(R.id.sessions_ListView), "Sessions Deleted", Snackbar.LENGTH_SHORT)
+                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
                                     .setAction("Action", null).show();
                         }
                     })
@@ -205,7 +206,11 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
             sessionNumber.setText("Session " + s.ID);
 
             TextView dateTime = (TextView) myView.findViewById(R.id.dateTime);
-            dateTime.setText(millisToTime(s.markers.get(0).timeStamp));
+            if(s.markers.size()>0) {
+                dateTime.setText(millisToTime(s.markers.get(0).timeStamp));
+            }
+            TextView lapCount = (TextView) myView.findViewById(R.id.lapCount);
+            lapCount.setText("Lap Count: " + MainActivity.lapCounter(position));
 
             return myView;
         }
@@ -225,5 +230,12 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
         }
 
         return super.onKeyDown(keyCode, event);
+    }
+
+
+    @Override
+    protected void onResume() {
+        initiateList();
+        super.onResume();
     }
 }

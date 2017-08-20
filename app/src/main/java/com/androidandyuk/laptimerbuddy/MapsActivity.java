@@ -32,13 +32,15 @@ import java.util.ArrayList;
 
 import static com.androidandyuk.laptimerbuddy.MainActivity.finishDirection;
 import static com.androidandyuk.laptimerbuddy.MainActivity.finishLine;
+import static com.androidandyuk.laptimerbuddy.MainActivity.finishRadius;
 import static com.androidandyuk.laptimerbuddy.MainActivity.finishSet;
 import static com.androidandyuk.laptimerbuddy.MainActivity.firstCorner;
 import static com.androidandyuk.laptimerbuddy.MainActivity.lastKnownLocation;
+import static com.androidandyuk.laptimerbuddy.MainActivity.saveMarkers;
 import static com.androidandyuk.laptimerbuddy.MainActivity.sessions;
 import static com.androidandyuk.laptimerbuddy.R.id.map;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnMapClickListener {
 
     private GoogleMap mMap;
 
@@ -57,23 +59,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
         mMap.setOnMapLongClickListener(this);
 
-        setMapMarkers();
+        mMap.setOnMapClickListener(this);
 
         // read in the reason the map has been called
         Intent intent = getIntent();
@@ -163,6 +155,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         .color(polyColour)
                         .geodesic(true));
 
+//                if (theseMarkers.get(i).finishLine) {
+//                    mMap.addMarker(new MarkerOptions()
+//                            .position(second)
+//                            .title("Lap Finished")
+//                    );
+//                }
+
             }
 
             LatLngBounds bounds = builder.build();
@@ -171,6 +170,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
 
             mMap.animateCamera(cu);
+
+            addFinishMarker();
 
             Double totalHours = (double) totalMillis / 3600000L;
             Double aveSpeed = distance / totalHours;
@@ -195,9 +196,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double lat2 = aa.getLatitude();
         double lng2 = aa.getLongitude();
 
-        Log.i("lat1 " + lat1,"lng1 " + lat2);
-        Log.i("lat2 " + lat1,"lng2 " + lat2);
-
         int r = 6371; // average radius of the earth in km
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lng2 - lng1);
@@ -211,26 +209,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
+    public void onMapClick(LatLng latLng) {
+        // just for testing, remove once done
+        Location thisLocation = new Location("0,50");
+        thisLocation.setLatitude(latLng.latitude);
+        thisLocation.setLongitude(latLng.longitude);
+        Marker thisMarker = new Marker(thisLocation);
+        Log.i("Adding location", "" + thisLocation);
+        sessions.get(0).markers.add(thisMarker);
+    }
+
+    @Override
     public void onMapLongClick(LatLng latLng) {
 
-        if (reason.equals("Finish")) {
-            if (finishSet) {
+//        if (reason.equals("Finish")) {
+        if (finishSet) {
 
-                firstCorner = latLng;
-                finishSet = false;
+            firstCorner = latLng;
+            finishSet = false;
 
-            } else {
+        } else {
 
-                finishLine = latLng;
-                finishSet = true;
+            finishLine = latLng;
+            finishSet = true;
 
-                Snackbar.make(findViewById(R.id.mapView), "Now Long Click Again To Show Direction", Snackbar.LENGTH_SHORT)
-                        .setAction("Action", null).show();
+            Snackbar.make(findViewById(R.id.mapView), "Now Long Click Again To Show Direction", Snackbar.LENGTH_SHORT)
+                    .setAction("Action", null).show();
 
-            }
-
-            setMapMarkers();
         }
+
+        setMapMarkers();
+//        }
     }
 
     public void setMapMarkers() {
@@ -256,12 +265,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             mMap.addCircle(new CircleOptions()
                     .center(finishLine)
-                    .radius(20)
+                    .radius(finishRadius * 100)
                     .strokeColor(Color.LTGRAY)
                     .fillColor(Color.LTGRAY));
 
 //            finishDirection = MainActivity.direction(firstCorner, finishLine);
             finishDirection = SphericalUtil.computeHeading(finishLine, firstCorner);
+            Log.i("Finish Direction", "" + finishDirection);
+        }
+    }
+
+    public void addFinishMarker() {
+
+        if (finishLine != null) {
+            mMap.addMarker(new MarkerOptions()
+                    .position(finishLine)
+                    .title("Finish Line")
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.flag_marker)));
+
+            mMap.addCircle(new CircleOptions()
+                    .center(finishLine)
+                    .radius(finishRadius * 100)
+                    .strokeColor(Color.LTGRAY)
+                    .fillColor(Color.LTGRAY));
+
             Log.i("Finish Direction", "" + finishDirection);
         }
     }
@@ -350,5 +377,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onPause() {
         stopLocationService();
         super.onPause();
+
+        // just needed while testing
+        saveMarkers();
     }
 }

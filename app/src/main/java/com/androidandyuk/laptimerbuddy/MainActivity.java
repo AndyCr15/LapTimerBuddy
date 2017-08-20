@@ -32,6 +32,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.maps.android.SphericalUtil;
 
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -39,8 +40,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import static com.androidandyuk.laptimerbuddy.Session.sessionCount;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -54,6 +53,7 @@ public class MainActivity extends AppCompatActivity
     public static LatLng finishLine;
     public static LatLng firstCorner;
     public static Double finishDirection;
+    public static Double finishRadius = 0.05;
     public static Boolean finishSet = false;
 
     public static SQLiteDatabase lapTimerDB;
@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity
 
     public static final DecimalFormat precision = new DecimalFormat("0.00");
     public static final DecimalFormat oneDecimal = new DecimalFormat("0.#");
+    public static final DecimalFormat noDecimal = new DecimalFormat("0");
 
     public static Timer timer;
 
@@ -78,7 +79,7 @@ public class MainActivity extends AppCompatActivity
     public static int activeSession;
 
     public static Double conversion = 0.621371;
-    public static String unit = "Miles";
+    public static String unit = "Mph";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,9 +92,6 @@ public class MainActivity extends AppCompatActivity
         loadSettings();
 
         lastKnownLocation = new Location("1,50");
-
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
         final FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -127,6 +125,9 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
@@ -139,6 +140,68 @@ public class MainActivity extends AppCompatActivity
         lapTimerDB = this.openOrCreateDatabase("sessions", MODE_PRIVATE, null);
 
         loadSessions();
+
+    }
+
+    public static int lapCounter(int sessionNumber) {
+        ArrayList<Lap> laps = new ArrayList<>();
+        ArrayList<Marker> theseMarkers = sessions.get(sessionNumber).markers;
+
+        // start on -1 as the first time past the finish line is the start of the first lap and doesn't count
+        int lapCounter = -1;
+
+        Location finishLocation = new Location("0,0");
+        finishLocation.setLatitude(finishLine.latitude);
+        finishLocation.setLongitude(finishLine.longitude);
+
+        Log.i("finishRadius", "" + finishRadius);
+
+        for (int i = 1; i < theseMarkers.size(); i++) {
+            Marker thisMarker = theseMarkers.get(i);
+            Marker lastMarker = theseMarkers.get(i - 1);
+
+            Double newToFinish = MapsActivity.getDistance(finishLocation, thisMarker.location);
+            Double oldToFinish = MapsActivity.getDistance(finishLocation, lastMarker.location);
+
+            LatLng thisLatLng = new LatLng(thisMarker.location.getLatitude(), thisMarker.location.getLongitude());
+            LatLng lastLatLng = new LatLng(lastMarker.location.getLatitude(), lastMarker.location.getLongitude());
+            Double dir = SphericalUtil.computeHeading(lastLatLng, thisLatLng);
+
+            Boolean headingHome = false;
+            Double finishDir = finishDirection;
+
+            if (dir < 0) {
+                dir = 360 + dir;
+            }
+
+            if (finishDir < 0) {
+                finishDir = 360 + finishDirection;
+            }
+
+            Double dif = Math.abs(dir - finishDir);
+
+            if (dif < 30 || dif > 330) {
+                headingHome = true;
+            }
+
+            if ((newToFinish < finishRadius) && (newToFinish < oldToFinish) && headingHome) {
+                // make this marker a point possibly a new lap has started
+                lastMarker.finishLine = false;
+                thisMarker.finishLine = true;
+            }
+
+            if (!thisMarker.finishLine && lastMarker.finishLine) {
+                // if the last marker was a possible new lap and this marker isn't, we must have passed the finish
+                lapCounter++;
+            }
+
+        }
+
+        if (laps.size() > 0) {
+            laps.remove(0);
+        }
+
+        return lapCounter;
 
     }
 
@@ -156,8 +219,17 @@ public class MainActivity extends AppCompatActivity
                             TextView timer = (TextView) findViewById(R.id.timer);
                             TextView direction = (TextView) findViewById(R.id.directionTV);
                             timer.setText(millisInMinutes(currentTimer));
-                            Double dir = direction(currentSession.markers.get(currentSession.markers.size() - 1).location, currentSession.markers.get(currentSession.markers.size() - 2).location);
+                            LatLng thisLatLng = new LatLng(currentSession.markers.get(currentSession.markers.size() - 1).location.getLatitude(), currentSession.markers.get(currentSession.markers.size() - 1).location.getLongitude());
+                            LatLng lastLatLng = new LatLng(currentSession.markers.get(currentSession.markers.size() - 2).location.getLatitude(), currentSession.markers.get(currentSession.markers.size() - 2).location.getLongitude());
+                            Double dir = SphericalUtil.computeHeading(lastLatLng, thisLatLng);
+                            if (dir < 0) {
+                                dir = 360 + dir;
+                            }
+//                            Double dir = direction(currentSession.markers.get(currentSession.markers.size() - 1).location, currentSession.markers.get(currentSession.markers.size() - 2).location);
                             direction.setText(Html.fromHtml("Direction: " + oneDecimal.format(dir) + "<sup><small>o</small></sup>"));
+
+                            TextView lapCount = findViewById(R.id.lapCounter);
+                            lapCount.setText("Laps : " + lapCounter(sessions.size() - 1));
 
                         }
 
@@ -427,7 +499,6 @@ public class MainActivity extends AppCompatActivity
                                 Marker newMarker = new Marker(thisLocation, Long.parseLong(timeStamp.get(x)), Boolean.valueOf(finishLine.get(x)));
 
                                 thisSession.markers.add(newMarker);
-                                Log.i("Added", " " + x + " " + newMarker);
                             }
                         }
                     }
@@ -453,6 +524,9 @@ public class MainActivity extends AppCompatActivity
         Double fclongitude = Double.parseDouble(sharedPreferences.getString("finishLineLon", "0"));
         firstCorner = new LatLng(fclatitude, fclongitude);
 
+        finishDirection = Double.parseDouble(sharedPreferences.getString("finishDirection", "0"));
+        finishRadius = Double.parseDouble(sharedPreferences.getString("finishRadius", "0.1"));
+
     }
 
     public static void saveSettings() {
@@ -468,6 +542,9 @@ public class MainActivity extends AppCompatActivity
         Double corLon = firstCorner.longitude;
         ed.putString("firstCornerLat", corLat.toString()).apply();
         ed.putString("firstCornerLon", corLon.toString()).apply();
+
+        ed.putString("finishDirection", finishDirection.toString()).apply();
+        ed.putString("finishRadius", finishRadius.toString()).apply();
 
     }
 
@@ -526,7 +603,8 @@ public class MainActivity extends AppCompatActivity
 
         } else if (id == R.id.nav_settings) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(intent);
 
         } else if (id == R.id.nav_sessions) {
 
@@ -554,8 +632,8 @@ public class MainActivity extends AppCompatActivity
                         public void onClick(DialogInterface dialog, int which) {
                             Log.i("Removing", "Sessions");
                             sessions.clear();
-                            sessionCount = 0;
-                            Snackbar.make(findViewById(R.id.sessions_ListView), "Sessions Deleted", Snackbar.LENGTH_SHORT)
+                            Session.sessionCount = 0;
+                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
                                     .setAction("Action", null).show();
                         }
                     })

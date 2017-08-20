@@ -44,7 +44,8 @@
         </receiver>
 
         <activity android:name=".SessionsActivity" />
-        <activity android:name=".DetailActivity"></activity>
+        <activity android:name=".DetailActivity" />
+        <activity android:name=".SettingsActivity"></activity>
     </application>
 
 </manifest>
