@@ -34,6 +34,7 @@ import com.google.android.gms.maps.model.LatLng;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -173,6 +174,12 @@ public class MainActivity extends AppCompatActivity
         return value;
     }
 
+    public static String millisToTime(Long millis) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(millis);
+        return dateTimeFormatter.format(calendar.getTime());
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -280,7 +287,7 @@ public class MainActivity extends AppCompatActivity
             for (Marker thisMarker : thisSession.markers) {
 
                 lat.add(Double.toString(thisMarker.location.getLatitude()));
-                lon.add(Double.toString(thisMarker.location.getLatitude()));
+                lon.add(Double.toString(thisMarker.location.getLongitude()));
                 timeStamp.add(Long.toString(thisMarker.timeStamp));
                 finishLine.add(String.valueOf(thisMarker.finishLine));
 
@@ -301,6 +308,8 @@ public class MainActivity extends AppCompatActivity
             } catch (Exception e) {
 
                 e.printStackTrace();
+                Log.i("Error", "savingMarkers");
+
             }
         }
     }
@@ -334,7 +343,7 @@ public class MainActivity extends AppCompatActivity
                     Log.i("Loading Sessions", "Failed attempt");
                 }
 
-                Log.i("Retrieved info", "Log count :" + ID.size());
+                Log.i("Retrieved info", "Session count :" + ID.size());
                 if (ID.size() > 0 && notes.size() > 0) {
                     // we've checked there is some info
                     if (ID.size() == notes.size()) {
@@ -403,12 +412,14 @@ public class MainActivity extends AppCompatActivity
                         if (lat.size() == lon.size() && timeStamp.size() == finishLine.size()) {
                             // we've checked each item has the same amount of info, nothing is missing
                             for (int x = 0; x < lat.size(); x++) {
-                                Location thisLocation = new Location(lat.get(x) + "," + lon.get(x));
-//                                thisLocation.setLatitude(Double.parseDouble(lat.get(x)));
-//                                thisLocation.setLongitude(Double.parseDouble(lon.get(x)));
+                                Location thisLocation = new Location("0,0");
+                                thisLocation.setLatitude(Double.parseDouble(lat.get(x)));
+                                thisLocation.setLongitude(Double.parseDouble(lon.get(x)));
+
                                 Marker newMarker = new Marker(thisLocation, Long.parseLong(timeStamp.get(x)), Boolean.valueOf(finishLine.get(x)));
-                                Log.i("Adding", "" + x + "" + newMarker);
+
                                 thisSession.markers.add(newMarker);
+                                Log.i("Added", " " + x + " " + newMarker);
                             }
                         }
                     }
@@ -424,7 +435,7 @@ public class MainActivity extends AppCompatActivity
 
     public static void loadSettings() {
 
-        Log.i("loadSettings","Running");
+        Log.i("loadSettings", "Running");
 
         Double latitude = Double.parseDouble(sharedPreferences.getString("finishLineLat", "0"));
         Double longitude = Double.parseDouble(sharedPreferences.getString("finishLineLon", "0"));
@@ -438,7 +449,7 @@ public class MainActivity extends AppCompatActivity
 
     public static void saveSettings() {
 
-        Log.i("saveSettings","Running");
+        Log.i("saveSettings", "Running");
 
         Double finLat = finishLine.latitude;
         Double finLon = finishLine.longitude;
@@ -492,7 +503,6 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.nav_settings) {
             // Handle the camera action
-        } else if (id == R.id.nav_markers) {
 
         } else if (id == R.id.nav_map) {
 
@@ -506,8 +516,7 @@ public class MainActivity extends AppCompatActivity
 
         } else if (id == R.id.nav_markers) {
 
-            Intent intent = new Intent(getApplicationContext(), MapsActivity.class);
-            intent.putExtra("Type", "Markers");
+            Intent intent = new Intent(getApplicationContext(), SessionsActivity.class);
             startActivity(intent);
 
         } else if (id == R.id.nav_restore) {
