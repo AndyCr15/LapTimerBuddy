@@ -9,6 +9,7 @@ import java.util.ArrayList;
 public class Session {
     static int sessionCount;
     int ID;
+    Double topSpeed;
     String notes;
     ArrayList<Marker> markers = new ArrayList<>();
 
@@ -17,9 +18,10 @@ public class Session {
         this.ID = sessionCount;
     }
 
-    public Session(int thisId, String thisNotes) {
+    public Session(int thisId, Double topSpeed, String thisNotes) {
         this.ID = thisId;
         this.notes = thisNotes;
+        this.topSpeed = topSpeed;
         sessionCount = thisId + 1;
     }
 }

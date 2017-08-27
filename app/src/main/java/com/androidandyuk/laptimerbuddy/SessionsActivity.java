@@ -131,6 +131,7 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
             Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
             startActivity(intent);
+            finish();
 
         } else if (id == R.id.nav_sessions) {
 
@@ -161,6 +162,9 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
                             sessionCount = 0;
                             Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
                                     .setAction("Action", null).show();
+                            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                            startActivity(intent);
+                            finish();
                         }
                     })
                     .setNegativeButton("No", null)
@@ -202,15 +206,15 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
             Session s = sessionDataAdapter.get(position);
 
-            TextView sessionNumber = (TextView) myView.findViewById(R.id.sessionNumber);
+            TextView sessionNumber = myView.findViewById(R.id.sessionNumber);
             sessionNumber.setText("Session " + s.ID);
 
-            TextView dateTime = (TextView) myView.findViewById(R.id.dateTime);
+            TextView dateTime = myView.findViewById(R.id.dateTime);
             if(s.markers.size()>0) {
                 dateTime.setText(millisToTime(s.markers.get(0).timeStamp));
             }
-            TextView lapCount = (TextView) myView.findViewById(R.id.lapCount);
-            lapCount.setText("Lap Count: " + MainActivity.lapCounter(position));
+            TextView lapCount = myView.findViewById(R.id.lapCount);
+            lapCount.setText(MainActivity.lapCounter(position));
 
             return myView;
         }

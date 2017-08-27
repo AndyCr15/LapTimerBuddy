@@ -240,12 +240,14 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
 
             Intent intent = new Intent(getApplicationContext(), MainActivity.class);
             startActivity(intent);
+            finish();
 
         } else if (id == R.id.nav_map) {
 
             Intent intent = new Intent(getApplicationContext(), MapsActivity.class);
             intent.putExtra("Type", "Finish");
             startActivity(intent);
+
 
         } else if (id == R.id.nav_social) {
 

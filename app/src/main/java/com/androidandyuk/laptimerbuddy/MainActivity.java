@@ -12,6 +12,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
@@ -26,6 +27,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
 import android.util.Log;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
@@ -34,10 +36,18 @@ import android.widget.Toast;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.SphericalUtil;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -49,6 +59,8 @@ public class MainActivity extends AppCompatActivity
 
     public static Boolean tracking = false;
     public static Session currentSession;
+
+    public static Double currentSpeed;
 
     public static LatLng finishLine;
     public static LatLng firstCorner;
@@ -71,6 +83,8 @@ public class MainActivity extends AppCompatActivity
     public static final DecimalFormat oneDecimal = new DecimalFormat("0.#");
     public static final DecimalFormat noDecimal = new DecimalFormat("0");
 
+    public static Boolean importingDB = true;
+    
     public static Timer timer;
 
     public static Location lastKnownLocation;
@@ -143,7 +157,7 @@ public class MainActivity extends AppCompatActivity
 
     }
 
-    public static int lapCounter(int sessionNumber) {
+    public static String lapCounter(int sessionNumber) {
         ArrayList<Lap> laps = new ArrayList<>();
         ArrayList<Marker> theseMarkers = sessions.get(sessionNumber).markers;
 
@@ -197,11 +211,10 @@ public class MainActivity extends AppCompatActivity
 
         }
 
-        if (laps.size() > 0) {
-            laps.remove(0);
+        if(lapCounter<0){
+            return "Not Started a Lap";
         }
-
-        return lapCounter;
+        return "Lap Count: " + Integer.toString(lapCounter);
 
     }
 
@@ -219,8 +232,12 @@ public class MainActivity extends AppCompatActivity
                             TextView timer = (TextView) findViewById(R.id.timer);
                             TextView direction = (TextView) findViewById(R.id.directionTV);
                             timer.setText(millisInMinutes(currentTimer));
-                            LatLng thisLatLng = new LatLng(currentSession.markers.get(currentSession.markers.size() - 1).location.getLatitude(), currentSession.markers.get(currentSession.markers.size() - 1).location.getLongitude());
-                            LatLng lastLatLng = new LatLng(currentSession.markers.get(currentSession.markers.size() - 2).location.getLatitude(), currentSession.markers.get(currentSession.markers.size() - 2).location.getLongitude());
+
+                            Marker thisMarker = currentSession.markers.get(currentSession.markers.size() - 1);
+                            Marker lastMarker = currentSession.markers.get(currentSession.markers.size() - 2);
+
+                            LatLng thisLatLng = new LatLng(thisMarker.location.getLatitude(), thisMarker.location.getLongitude());
+                            LatLng lastLatLng = new LatLng(lastMarker.location.getLatitude(), lastMarker.location.getLongitude());
                             Double dir = SphericalUtil.computeHeading(lastLatLng, thisLatLng);
                             if (dir < 0) {
                                 dir = 360 + dir;
@@ -228,8 +245,17 @@ public class MainActivity extends AppCompatActivity
 //                            Double dir = direction(currentSession.markers.get(currentSession.markers.size() - 1).location, currentSession.markers.get(currentSession.markers.size() - 2).location);
                             direction.setText(Html.fromHtml("Direction: " + oneDecimal.format(dir) + "<sup><small>o</small></sup>"));
 
+                            Double thisDistance = MapsActivity.getDistance(lastMarker.location, thisMarker.location);
+                            Long thisMillis = thisMarker.timeStamp - lastMarker.timeStamp;
+
+                            Double thisHours = (double) thisMillis / 3600000L;
+                            Double thisSpeed = (double) thisDistance / thisHours;
+
+                            TextView speed = findViewById(R.id.speedTV);
+                            speed.setText(oneDecimal.format(thisSpeed) + unit);
+
                             TextView lapCount = findViewById(R.id.lapCounter);
-                            lapCount.setText("Laps : " + lapCounter(sessions.size() - 1));
+                            lapCount.setText(lapCounter(sessions.size() - 1));
 
                         }
 
@@ -273,6 +299,18 @@ public class MainActivity extends AppCompatActivity
 
             }
 
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+
+                Log.i("onRequest", "Write Storage permission granted");
+
+                if (importingDB) {
+                    importDB();
+                } else {
+                    exportDB();
+                }
+
+
+            }
         }
 
     }
@@ -548,6 +586,118 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    public void backupDB() {
+        importingDB = true;
+        int REQUEST_ID_MULTIPLE_PERMISSIONS = 1;
+        int storage = ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        if (storage != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            Log.i("exportTrip", "storage !=");
+        }
+        if (!listPermissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray
+                    (new String[listPermissionsNeeded.size()]), REQUEST_ID_MULTIPLE_PERMISSIONS);
+            Log.i("exportTrip", "listPermissionsNeeded !=");
+        } else {
+            Log.i("exportTrip", "exporting!");
+            exportDB();
+        }
+    }
+
+    public void exportDB() {
+        Log.i("exportDB", "Starting");
+        File sd = Environment.getExternalStorageDirectory();
+        File data = Environment.getDataDirectory();
+        FileChannel source = null;
+        FileChannel destination = null;
+
+        File dir = new File(Environment.getExternalStorageDirectory() + "/LapTimerBuddy/");
+        try {
+            if (dir.mkdir()) {
+                System.out.println("Directory created");
+            } else {
+                System.out.println("Directory is not created");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.i("Creating Dir Error", "" + e);
+        }
+
+        String currentDBPath = "/data/com.androidandyuk.laptimerbuddy/databases/sessions";
+        String backupDBPath = "LapTimerBuddy/LapTimer.db";
+        File currentDB = new File(data, currentDBPath);
+        File backupDB = new File(sd, backupDBPath);
+        try {
+            source = new FileInputStream(currentDB).getChannel();
+            destination = new FileOutputStream(backupDB).getChannel();
+            destination.transferFrom(source, 0, source.size());
+            source.close();
+            destination.close();
+            Snackbar.make(findViewById(R.id.main), "DB Exported!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Snackbar.make(findViewById(R.id.main), "Exported Failed!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+        }
+    }
+
+    public void restoreDB() {
+        importingDB = true;
+        int REQUEST_ID_MULTIPLE_PERMISSIONS = 1;
+        int storage = ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        List<String> listPermissionsNeeded = new ArrayList<>();
+        if (storage != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            Log.i("importTrip", "storage !=");
+        }
+        if (!listPermissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, listPermissionsNeeded.toArray
+                    (new String[listPermissionsNeeded.size()]), REQUEST_ID_MULTIPLE_PERMISSIONS);
+            Log.i("importTrip", "listPermissionsNeeded !=");
+        } else {
+            Log.i("importTrip", "importing!");
+            importDB();
+        }
+    }
+
+    public void importDB() {
+        Log.i("ImportDB", "Started");
+        try {
+            String DB_PATH = "/data/data/com.androidandyuk.laptimerbuddy/databases/sessions";
+
+            File sdcard = Environment.getExternalStorageDirectory();
+            String yourDbFileNamePresentInSDCard = sdcard.getAbsolutePath() + File.separator + "LapTimerBuddy/LapTimer.db";
+
+            Log.i("ImportDB", "SDCard File " + yourDbFileNamePresentInSDCard);
+
+            File file = new File(yourDbFileNamePresentInSDCard);
+            // Open your local db as the input stream
+            InputStream myInput = new FileInputStream(file);
+
+            // Path to created empty db
+            String outFileName = DB_PATH;
+
+            // Opened assets database structure
+            OutputStream myOutput = new FileOutputStream(outFileName);
+
+            // transfer bytes from the inputfile to the outputfile
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = myInput.read(buffer)) > 0) {
+                myOutput.write(buffer, 0, length);
+            }
+
+            // Close the streams
+            myOutput.flush();
+            myOutput.close();
+            myInput.close();
+        } catch (Exception e) {
+            Log.i("ImportDB", "Exception Caught" + e);
+        }
+        loadSessions();
+        Snackbar.make(findViewById(R.id.main), "DB Imported", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+    }
+
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -558,27 +708,27 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        // Inflate the menu; this adds items to the action bar if it is present.
-//        getMenuInflater().inflate(R.menu.main, menu);
-//        return true;
-//    }
-//
-//    @Override
-//    public boolean onOptionsItemSelected(MenuItem item) {
-//        // Handle action bar item clicks here. The action bar will
-//        // automatically handle clicks on the Home/Up button, so long
-//        // as you specify a parent activity in AndroidManifest.xml.
-//        int id = item.getItemId();
-//
-//        //noinspection SimplifiableIfStatement
-//        if (id == R.id.action_settings) {
-//            return true;
-//        }
-//
-//        return super.onOptionsItemSelected(item);
-//    }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
 
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
@@ -613,13 +763,11 @@ public class MainActivity extends AppCompatActivity
 
         } else if (id == R.id.nav_backup) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // saveDB
+            backupDB();
 
         } else if (id == R.id.nav_restore) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // loadDB
+            restoreDB();
 
         } else if (id == R.id.nav_delete) {
 
@@ -633,8 +781,7 @@ public class MainActivity extends AppCompatActivity
                             Log.i("Removing", "Sessions");
                             sessions.clear();
                             Session.sessionCount = 0;
-                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
-                                    .setAction("Action", null).show();
+                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         }
                     })
                     .setNegativeButton("No", null)

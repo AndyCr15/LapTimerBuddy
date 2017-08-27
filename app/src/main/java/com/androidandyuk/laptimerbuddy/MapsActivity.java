@@ -40,7 +40,7 @@ import static com.androidandyuk.laptimerbuddy.MainActivity.saveMarkers;
 import static com.androidandyuk.laptimerbuddy.MainActivity.sessions;
 import static com.androidandyuk.laptimerbuddy.R.id.map;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnMapClickListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
 
     private GoogleMap mMap;
 
@@ -65,7 +65,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.setOnMapLongClickListener(this);
 
-        mMap.setOnMapClickListener(this);
+//        mMap.setOnMapClickListener(this);
 
         // read in the reason the map has been called
         Intent intent = getIntent();
@@ -119,32 +119,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Double thisHours = (double) thisMillis / 3600000L;
                 Double thisSpeed = (double) thisDistance / thisHours;
 
-                if (thisSpeed > topSpeed && thisSpeed < 200) {
-                    topSpeed = thisSpeed;
-                }
+                Double speedRatio = thisSpeed / sessions.get(session).topSpeed;
 
                 builder.include(second);
 
                 int polyColour = Color.GRAY;
-                if (thisSpeed > 20) {
+                if (speedRatio > 0.2) {
                     polyColour = Color.rgb(141, 179, 139);
                 }
-                if (thisSpeed > 30) {
+                if (speedRatio > 0.3) {
                     polyColour = Color.rgb(91, 202, 85);
                 }
-                if (thisSpeed > 40) {
+                if (speedRatio > 0.4) {
                     polyColour = Color.rgb(100, 221, 23);
                 }
-                if (thisSpeed > 50) {
+                if (speedRatio > 0.5) {
                     polyColour = Color.rgb(205, 220, 57);
                 }
-                if (thisSpeed > 60) {
+                if (speedRatio > 0.6) {
                     polyColour = Color.rgb(233, 117, 40);
                 }
-                if (thisSpeed > 70) {
+                if (speedRatio > 0.7) {
                     polyColour = Color.rgb(233, 69, 40);
                 }
-                if (thisSpeed > 80) {
+                if (speedRatio > 0.8) {
                     polyColour = Color.rgb(198, 40, 40);
                 }
 
@@ -208,16 +206,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return d;
     }
 
-    @Override
-    public void onMapClick(LatLng latLng) {
-        // just for testing, remove once done
-        Location thisLocation = new Location("0,50");
-        thisLocation.setLatitude(latLng.latitude);
-        thisLocation.setLongitude(latLng.longitude);
-        Marker thisMarker = new Marker(thisLocation);
-        Log.i("Adding location", "" + thisLocation);
-        sessions.get(0).markers.add(thisMarker);
-    }
+//    @Override
+//    public void onMapClick(LatLng latLng) {
+//        // just for testing, remove once done
+//        Location thisLocation = new Location("0,50");
+//        thisLocation.setLatitude(latLng.latitude);
+//        thisLocation.setLongitude(latLng.longitude);
+//        Marker thisMarker = new Marker(thisLocation);
+//        Log.i("Adding location", "" + thisLocation);
+//        sessions.get(0).markers.add(thisMarker);
+//    }
 
     @Override
     public void onMapLongClick(LatLng latLng) {
@@ -265,7 +263,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             mMap.addCircle(new CircleOptions()
                     .center(finishLine)
-                    .radius(finishRadius * 100)
+                    .radius(finishRadius * 1000)
                     .strokeColor(Color.LTGRAY)
                     .fillColor(Color.LTGRAY));
 
@@ -299,7 +297,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Add a marker and move the camera
         LatLng you = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
         mMap.addMarker(new MarkerOptions().position(you).title("Your Location"));
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(you, 15));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(you, 18));
     }
 
     public void centerMapOnLocation(Location location) {
@@ -307,7 +305,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng selectedLatLng = new LatLng(location.getLatitude(), location.getLongitude());
         Log.i("centerMapOnLocation", "" + selectedLatLng);
 
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(selectedLatLng, 15));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(selectedLatLng, 18));
     }
 
     public void startLocationService() {
