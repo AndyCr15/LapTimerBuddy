@@ -34,7 +34,9 @@ import static com.androidandyuk.laptimerbuddy.MainActivity.finishDirection;
 import static com.androidandyuk.laptimerbuddy.MainActivity.finishLine;
 import static com.androidandyuk.laptimerbuddy.MainActivity.finishRadius;
 import static com.androidandyuk.laptimerbuddy.MainActivity.millisInMinutes;
+import static com.androidandyuk.laptimerbuddy.MainActivity.navChoice;
 import static com.androidandyuk.laptimerbuddy.MainActivity.oneDecimal;
+import static com.androidandyuk.laptimerbuddy.MainActivity.saveSessions;
 import static com.androidandyuk.laptimerbuddy.MainActivity.sessions;
 import static com.androidandyuk.laptimerbuddy.MainActivity.unit;
 
@@ -67,103 +69,116 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
         TextView header = findViewById(R.id.header);
         header.setText("Session " + sessions.get(activeSession).ID);
 
-        calculateLaps(activeSession);
+        calculateLaps(sessions.get(activeSession));
+        initiateList();
     }
 
-    public void calculateLaps(int sessionNumber) {
-        ArrayList<Marker> theseMarkers = sessions.get(sessionNumber).markers;
+    public void calculateLaps(Session session) {
+        ArrayList<Marker> theseMarkers = session.markers;
 
         // calculate laps!!!
+        if (theseMarkers.size() > 0) {
+            for (Marker thisMarker : theseMarkers) {
+                thisMarker.finishLine = false;
+            }
 
-        for(Marker thisMarker :  theseMarkers){
-            thisMarker.finishLine = false;
-        }
+            Double distance = 0d;
+            Long lapStart = theseMarkers.get(0).timeStamp;
+            Double topSpeed = 0d;
+            int lapCounter = 0;
 
-        Double distance = 0d;
-        Long lapStart = theseMarkers.get(0).timeStamp;
-        Double topSpeed = 0d;
-        int lapCounter = 0;
+            laps.clear();
 
-        laps.clear();
+            Location finishLocation = new Location("0,0");
+            finishLocation.setLatitude(finishLine.latitude);
+            finishLocation.setLongitude(finishLine.longitude);
 
-        Location finishLocation = new Location("0,0");
-        finishLocation.setLatitude(finishLine.latitude);
-        finishLocation.setLongitude(finishLine.longitude);
+            Log.i("finishRadius", "" + finishRadius);
 
-        Log.i("finishRadius", "" + finishRadius);
+            for (int i = 1; i < theseMarkers.size(); i++) {
+                Marker thisMarker = theseMarkers.get(i);
+                Marker lastMarker = theseMarkers.get(i - 1);
 
-        for (int i = 1; i < theseMarkers.size(); i++) {
-            Marker thisMarker = theseMarkers.get(i);
-            Marker lastMarker = theseMarkers.get(i - 1);
-
-            Double thisDistance = MapsActivity.getDistance(lastMarker.location, thisMarker.location);
-            Long thisMillis = thisMarker.timeStamp - lastMarker.timeStamp;
+                Double thisDistance = MapsActivity.getDistance(lastMarker.location, thisMarker.location);
+                Long thisMillis = thisMarker.timeStamp - lastMarker.timeStamp;
 
 //            Log.i("thisDistance " + thisDistance, "thisMillis " + thisMillis);
 
-            distance += thisDistance;
+                distance += thisDistance;
 
-            Double thisHours = (double) thisMillis / 3600000L;
-            Double thisSpeed = (double) thisDistance / thisHours;
+                Double thisHours = (double) thisMillis / 3600000L;
+                Double thisSpeed = (double) thisDistance / thisHours;
 
 
-            if (thisSpeed > topSpeed && thisSpeed < 300) {
-                topSpeed = thisSpeed;
-                topSpeedLocation = thisMarker.location;
+                if (thisSpeed > topSpeed && thisSpeed < 300) {
+                    topSpeed = thisSpeed;
+                    topSpeedLocation = thisMarker.location;
+                }
+
+                Double newToFinish = MapsActivity.getDistance(finishLocation, thisMarker.location);
+                Double oldToFinish = MapsActivity.getDistance(finishLocation, lastMarker.location);
+
+                LatLng thisLatLng = new LatLng(thisMarker.location.getLatitude(), thisMarker.location.getLongitude());
+                LatLng lastLatLng = new LatLng(lastMarker.location.getLatitude(), lastMarker.location.getLongitude());
+                Double dir = SphericalUtil.computeHeading(lastLatLng, thisLatLng);
+
+                Boolean headingHome = false;
+                Double finishDir = finishDirection;
+
+                if (dir < 0) {
+                    dir = 360 + dir;
+                }
+
+                if (finishDir < 0) {
+                    finishDir = 360 + finishDirection;
+                }
+
+                Double dif = Math.abs(dir - finishDir);
+
+                if (dif < 20 || dif > 340) {
+                    headingHome = true;
+                }
+
+                if ((newToFinish < finishRadius) && (newToFinish < oldToFinish) && headingHome) {
+                    // make this marker a point possibly a new lap has started
+                    lastMarker.finishLine = false;
+                    thisMarker.finishLine = true;
+                }
+
+                if (!thisMarker.finishLine && lastMarker.finishLine) {
+                    // if the last marker was a possible new lap and this marker isn't, we must have passed the finish
+
+
+                    Lap thisLap;
+                    thisLap = new Lap(lapCounter, lastMarker.timeStamp - lapStart, distance, topSpeed);
+                    laps.add(thisLap);
+
+                    lapStart = lastMarker.timeStamp;
+
+                    topSpeed = 0.0;
+                    distance = 0.0;
+                    lapCounter++;
+                }
+
             }
 
-
-            Double newToFinish = MapsActivity.getDistance(finishLocation, thisMarker.location);
-            Double oldToFinish = MapsActivity.getDistance(finishLocation, lastMarker.location);
-
-            LatLng thisLatLng = new LatLng(thisMarker.location.getLatitude(), thisMarker.location.getLongitude());
-            LatLng lastLatLng = new LatLng(lastMarker.location.getLatitude(), lastMarker.location.getLongitude());
-            Double dir = SphericalUtil.computeHeading(lastLatLng, thisLatLng);
-
-            Boolean headingHome = false;
-            Double finishDir = finishDirection;
-
-            if (dir < 0) {
-                dir = 360 + dir;
+            if (laps.size() > 0) {
+                laps.remove(0);
             }
 
-            if (finishDir < 0) {
-                finishDir = 360 + finishDirection;
+            // do the checks for fastest after the none laps have been removed
+            if (laps.size() > 0) {
+                for (Lap thisLap : laps) {
+                    // check if this lap is the fastest of the session
+                    if (thisLap.time < session.fastestLap) {
+                        session.fastestLap = thisLap.time;
+                    }
+                    if (thisLap.topSpeed > session.topSpeed) {
+                        session.topSpeed = thisLap.topSpeed;
+                    }
+                }
             }
-
-            Double dif = Math.abs(dir - finishDir);
-
-            if (dif < 20 || dif > 340) {
-                headingHome = true;
-            }
-
-            if ((newToFinish < finishRadius) && (newToFinish < oldToFinish) && headingHome) {
-                // make this marker a point possibly a new lap has started
-                lastMarker.finishLine = false;
-                thisMarker.finishLine = true;
-            }
-
-            if (!thisMarker.finishLine && lastMarker.finishLine) {
-                // if the last marker was a possible new lap and this marker isn't, we must have passed the finish
-                Lap thisLap;
-                thisLap = new Lap(lapCounter, lastMarker.timeStamp - lapStart, distance, topSpeed);
-                laps.add(thisLap);
-
-                lapStart = lastMarker.timeStamp;
-
-                topSpeed = 0.0;
-                distance = 0.0;
-                lapCounter++;
-            }
-
         }
-
-        if (laps.size() > 0) {
-            laps.remove(0);
-        }
-
-        initiateList();
-
     }
 
     private void initiateList() {
@@ -238,8 +253,7 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
 
         if (id == R.id.nav_timer) {
 
-            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-            startActivity(intent);
+            navChoice = "timer";
             finish();
 
         } else if (id == R.id.nav_map) {
@@ -247,7 +261,6 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
             Intent intent = new Intent(getApplicationContext(), MapsActivity.class);
             intent.putExtra("Type", "Finish");
             startActivity(intent);
-
 
         } else if (id == R.id.nav_social) {
 
@@ -260,18 +273,18 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
 
         } else if (id == R.id.nav_sessions) {
 
-            Intent intent = new Intent(getApplicationContext(), SessionsActivity.class);
-            startActivity(intent);
+            navChoice = "";
+            finish();
 
         } else if (id == R.id.nav_backup) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // saveDB
+            navChoice = "backupDB";
+            finish();
 
         } else if (id == R.id.nav_restore) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // loadDB
+            navChoice = "restoreDB";
+            finish();
 
         } else if (id == R.id.nav_delete) {
 
@@ -285,8 +298,10 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
                             Log.i("Removing", "Sessions");
                             sessions.clear();
                             Session.sessionCount = 0;
-                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
-                                    .setAction("Action", null).show();
+                            saveSessions();
+                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+                            navChoice = "timer";
+                            finish();
                         }
                     })
                     .setNegativeButton("No", null)
@@ -316,7 +331,8 @@ public class DetailActivity extends AppCompatActivity implements NavigationView.
 
     @Override
     protected void onResume() {
-        calculateLaps(activeSession);
+        calculateLaps(sessions.get(activeSession));
+        initiateList();
         super.onResume();
     }
 }

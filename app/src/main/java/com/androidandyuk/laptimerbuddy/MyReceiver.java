@@ -12,19 +12,21 @@ import android.util.Log;
 
 public class MyReceiver extends BroadcastReceiver {
 
+    private static final String TAG = "MyReceiver";
+
     @Override
     public void onReceive(Context arg0, Intent arg1) {
 
-        Log.i("MyReceiver","Called");
+        Log.i(TAG,"Called");
 
         String thisLat = arg1.getStringExtra("Lat");
         String thisLon = arg1.getStringExtra("Lon");
 
         Log.i("thisLat(s)" + thisLat,"thisLon(s)" + thisLon);
         Location thisLocation = new Location("50,1");
-        MainActivity.lastKnownLocation = thisLocation;
         thisLocation.setLatitude(Double.parseDouble(thisLat));
         thisLocation.setLongitude(Double.parseDouble(thisLon));
+        MainActivity.lastKnownLocation = thisLocation;
         // add a new market to the current session
         if(MainActivity.tracking) {
             new MainActivity().addMarker(thisLocation);

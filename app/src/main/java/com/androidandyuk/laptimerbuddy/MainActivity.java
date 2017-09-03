@@ -1,15 +1,15 @@
 package com.androidandyuk.laptimerbuddy;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -27,7 +27,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
 import android.util.Log;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
@@ -54,6 +53,8 @@ import java.util.TimerTask;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    final public static String TAG = "MainActivity";
+
     public static SharedPreferences sharedPreferences;
     public static SharedPreferences.Editor ed;
 
@@ -62,16 +63,16 @@ public class MainActivity extends AppCompatActivity
 
     public static Double currentSpeed;
 
-    public static LatLng finishLine;
+    public static LatLng finishLine = null;
     public static LatLng firstCorner;
     public static Double finishDirection;
     public static Double finishRadius = 0.05;
     public static Boolean finishSet = false;
 
+    public static Boolean askedNearTrack = false;
+
     public static SQLiteDatabase lapTimerDB;
 
-    public static LocationManager locationManager;
-    public static LocationListener locationListener;
     public static int locationUpdatesTime = 0;
     public static int locationUpdatesDistance = 0;
 
@@ -83,8 +84,11 @@ public class MainActivity extends AppCompatActivity
     public static final DecimalFormat oneDecimal = new DecimalFormat("0.#");
     public static final DecimalFormat noDecimal = new DecimalFormat("0");
 
+    public static String jsonLocation = "http://www.androidandy.uk/json/";
+
     public static Boolean importingDB = true;
-    
+    public static String navChoice = "";
+
     public static Timer timer;
 
     public static Location lastKnownLocation;
@@ -95,6 +99,12 @@ public class MainActivity extends AppCompatActivity
     public static Double conversion = 0.621371;
     public static String unit = "Mph";
 
+    public static List<TrackLocation> trackLocations = new ArrayList<>();
+    public static String nearestTrack;
+    private static TextView nearestTrackTV;
+
+    BroadcastReceiver mMessageReceiver;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,8 +112,9 @@ public class MainActivity extends AppCompatActivity
 
         sharedPreferences = this.getSharedPreferences("com.androidandyuk.laptimerbuddy", Context.MODE_PRIVATE);
         ed = sharedPreferences.edit();
-
         loadSettings();
+
+        nearestTrackTV = findViewById(R.id.nearestTrack);
 
         lastKnownLocation = new Location("1,50");
 
@@ -112,6 +123,13 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View view) {
                 if (!tracking) {
+
+                    Log.i("finishLine ","" + finishLine);
+
+                    if(!askedNearTrack){
+                        checkNearestTrack(lastKnownLocation,MainActivity.this);
+                    }
+
                     Snackbar.make(view, "Location tracking started", Snackbar.LENGTH_SHORT)
                             .setAction("Action", null).show();
                     tracking = true;
@@ -131,7 +149,6 @@ public class MainActivity extends AppCompatActivity
                     tracking = false;
                     fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.ic_stop_watch));
                     //stop tracking service
-                    stopLocationService();
                     timer.cancel();
                     timer.purge();
                     saveSessions();
@@ -155,6 +172,70 @@ public class MainActivity extends AppCompatActivity
 
         loadSessions();
 
+        new MyAsyncTaskgetNews().execute(jsonLocation + "racetracks.json");
+
+
+        IntentFilter iff = new IntentFilter(MyService.ACTION);
+        this.registerReceiver(onNotice, iff);
+
+        Intent i = new Intent(this, MyService.class);
+        i.putExtra("Time", locationUpdatesTime);
+        i.putExtra("Dist", locationUpdatesDistance);
+        startService(i);
+
+    }
+
+    private BroadcastReceiver onNotice = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("MainActivity", "onReceive called");
+
+            String thisLat = intent.getStringExtra("Lat");
+            String thisLon = intent.getStringExtra("Lon");
+
+            Log.i("thisLat(s)" + thisLat, "thisLon(s)" + thisLon);
+            Location thisLocation = new Location("50,1");
+            thisLocation.setLatitude(Double.parseDouble(thisLat));
+            thisLocation.setLongitude(Double.parseDouble(thisLon));
+            lastKnownLocation = thisLocation;
+            // add a new market to the current session
+            if (tracking) {
+                addMarker(thisLocation);
+            }
+        }
+    };
+
+    public static void checkNearestTrack(Location lastKnownLocation, Context context) {
+        if (trackLocations.size() > 0) {
+            Log.i(TAG, "checkNearestTrack");
+            for (final TrackLocation thisTrack : trackLocations) {
+                if (thisTrack.getDistance(lastKnownLocation) < 2) {
+                    Log.i(TAG, "Near track " + thisTrack);
+                    if (thisTrack.finishLine.longitude != 0.0 && thisTrack.finishLine.latitude != 0.0) {
+                        askedNearTrack = true;
+
+                        new AlertDialog.Builder(context)
+                                .setIcon(R.drawable.icon)
+                                .setTitle("Are you at " + thisTrack.name + "?")
+                                .setMessage("Would you like to use the pre-programmed track information?")
+                                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+
+                                        finishLine = thisTrack.finishLine;
+                                        finishDirection = thisTrack.finishDir;
+                                        Log.i("finishLine ", "" + finishLine);
+                                        nearestTrack = thisTrack.name;
+                                        nearestTrackTV.setText(nearestTrack);
+                                    }
+                                })
+                                .setNegativeButton("No", null)
+                                .show();
+                    }
+                }
+            }
+        }
     }
 
     public static String lapCounter(int sessionNumber) {
@@ -211,7 +292,7 @@ public class MainActivity extends AppCompatActivity
 
         }
 
-        if(lapCounter<0){
+        if (lapCounter < 0) {
             return "Not Started a Lap";
         }
         return "Lap Count: " + Integer.toString(lapCounter);
@@ -219,15 +300,14 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void runTimer() {
-        timer = new Timer();
 
+        timer = new Timer();
         timer.schedule(new TimerTask() {
             public void run() {
                 if (currentSession.markers.size() > 1) {
                     runOnUiThread(new Runnable() {
                         public void run() {
                             // can't pause the timer, as it's based on the first marker of the session
-
                             Long currentTimer = System.currentTimeMillis() - currentSession.markers.get(1).timeStamp;
                             TextView timer = (TextView) findViewById(R.id.timer);
                             TextView direction = (TextView) findViewById(R.id.directionTV);
@@ -286,6 +366,15 @@ public class MainActivity extends AppCompatActivity
         return dateTimeFormatter.format(calendar.getTime());
     }
 
+    public void checkFAB(){
+        FloatingActionButton fab = findViewById(R.id.fab);
+        if(!tracking){
+            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.ic_stop_watch));
+        } else {
+            fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.ic_stop_watch_off));
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
@@ -316,7 +405,6 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void addMarker(Location thisLocation) {
-
         lastKnownLocation = thisLocation;
         Log.i("addMarker", "Location Received" + lastKnownLocation);
         currentSession.markers.add(new Marker(lastKnownLocation));
@@ -360,6 +448,7 @@ public class MainActivity extends AppCompatActivity
         // convert radians to degrees (as bearing: 0...360)
         return (ToDegrees(radians) + 360) % 360;
     }
+
 
     public static void saveSessions() {
 
@@ -708,28 +797,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
@@ -781,6 +848,8 @@ public class MainActivity extends AppCompatActivity
                             Log.i("Removing", "Sessions");
                             sessions.clear();
                             Session.sessionCount = 0;
+                            saveSessions();
+                            saveMarkers();
                             Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         }
                     })
@@ -830,8 +899,10 @@ public class MainActivity extends AppCompatActivity
 
     public void stopLocationService() {
         try {
+            // Unregister since the activity is about to be closed.
             Intent intent = new Intent(getApplicationContext(), MyService.class);
             stopService(intent);
+            unregisterReceiver(onNotice);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -846,5 +917,27 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
+        checkFAB();
+        switch (navChoice) {
+            case "backupDB":
+                navChoice = "";
+                backupDB();
+                return;
+            case "restoreDB":
+                navChoice = "";
+                restoreDB();
+                return;
+            case "timer":
+                navChoice = "";
+                return;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if(!tracking) {
+            stopLocationService();
+        }
+        super.onDestroy();
     }
 }

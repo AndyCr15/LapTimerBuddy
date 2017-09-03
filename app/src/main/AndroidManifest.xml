@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -35,14 +36,14 @@
             android:name=".MyService"
             android:process=":my_service" />
 
-        <receiver
-            android:name=".MyReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.androidandyuk.laptimerbuddy" />
-            </intent-filter>
-        </receiver>
+        <!--<receiver-->
+            <!--android:name=".MyReceiver"-->
+            <!--android:enabled="true"-->
+            <!--android:exported="true">-->
+            <!--<intent-filter>-->
+                <!--<action android:name="com.androidandyuk.laptimerbuddy" />-->
+            <!--</intent-filter>-->
+        <!--</receiver>-->
 
         <activity android:name=".SessionsActivity" />
         <activity android:name=".DetailActivity" />

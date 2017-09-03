@@ -26,9 +26,14 @@ import android.widget.Toast;
 import java.util.ArrayList;
 
 import static com.androidandyuk.laptimerbuddy.MainActivity.activeSession;
+import static com.androidandyuk.laptimerbuddy.MainActivity.conversion;
+import static com.androidandyuk.laptimerbuddy.MainActivity.millisInMinutes;
 import static com.androidandyuk.laptimerbuddy.MainActivity.millisToTime;
+import static com.androidandyuk.laptimerbuddy.MainActivity.navChoice;
+import static com.androidandyuk.laptimerbuddy.MainActivity.oneDecimal;
+import static com.androidandyuk.laptimerbuddy.MainActivity.saveSessions;
 import static com.androidandyuk.laptimerbuddy.MainActivity.sessions;
-import static com.androidandyuk.laptimerbuddy.Session.sessionCount;
+import static com.androidandyuk.laptimerbuddy.MainActivity.unit;
 
 public class SessionsActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
@@ -97,6 +102,11 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
     }
 
     private void initiateList() {
+
+        for(Session thisSession : sessions){
+            new DetailActivity().calculateLaps(thisSession);
+        }
+
         Log.i("Sessions", "Initiating List");
         listView = findViewById(R.id.sessions_ListView);
 
@@ -114,8 +124,7 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
         if (id == R.id.nav_timer) {
 
-            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-            startActivity(intent);
+            finish();
 
         } else if (id == R.id.nav_map) {
 
@@ -131,7 +140,6 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
             Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
             startActivity(intent);
-            finish();
 
         } else if (id == R.id.nav_sessions) {
 
@@ -140,13 +148,13 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
 
         } else if (id == R.id.nav_backup) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // saveDB
+            navChoice = "backupDB";
+            finish();
 
         } else if (id == R.id.nav_restore) {
 
-            Toast.makeText(this, "Not available yet.", Toast.LENGTH_SHORT).show();
-            // loadDB
+            navChoice = "restoreDB";
+            finish();
 
         } else if (id == R.id.nav_delete) {
 
@@ -159,11 +167,10 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
                         public void onClick(DialogInterface dialog, int which) {
                             Log.i("Removing", "Sessions");
                             sessions.clear();
-                            sessionCount = 0;
-                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT)
-                                    .setAction("Action", null).show();
-                            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-                            startActivity(intent);
+                            Session.sessionCount = 0;
+                            saveSessions();
+                            Snackbar.make(findViewById(R.id.main), "Sessions Deleted", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+                            navChoice="timer";
                             finish();
                         }
                     })
@@ -213,8 +220,16 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
             if(s.markers.size()>0) {
                 dateTime.setText(millisToTime(s.markers.get(0).timeStamp));
             }
+
             TextView lapCount = myView.findViewById(R.id.lapCount);
             lapCount.setText(MainActivity.lapCounter(position));
+
+            TextView fastestLap = myView.findViewById(R.id.fastestLapTV);
+            TextView topSpeed = myView.findViewById(R.id.topSpeedTV);
+            if(s.markers.size()>0 && s.fastestLap!=999999999L) {
+                fastestLap.setText(millisInMinutes(s.fastestLap));
+                topSpeed.setText(oneDecimal.format(s.topSpeed * conversion) + " " + unit);
+            }
 
             return myView;
         }
@@ -241,5 +256,16 @@ public class SessionsActivity extends AppCompatActivity implements NavigationVie
     protected void onResume() {
         initiateList();
         super.onResume();
+        switch (navChoice) {
+            case"backupDB":
+                finish();
+                return;
+            case"restoreDB":
+                finish();
+                return;
+            case"timer":
+                finish();
+                return;
+        }
     }
 }
