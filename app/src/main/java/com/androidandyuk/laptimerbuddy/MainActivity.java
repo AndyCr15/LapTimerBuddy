@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -29,6 +30,10 @@ import android.text.Html;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -88,6 +93,7 @@ public class MainActivity extends AppCompatActivity
 
     public static Boolean importingDB = true;
     public static String navChoice = "";
+    private static final int CHOOSE_FILE_REQUESTCODE = 1;
 
     public static Timer timer;
 
@@ -124,10 +130,10 @@ public class MainActivity extends AppCompatActivity
             public void onClick(View view) {
                 if (!tracking) {
 
-                    Log.i("finishLine ","" + finishLine);
+                    Log.i("finishLine ", "" + finishLine);
 
-                    if(!askedNearTrack){
-                        checkNearestTrack(lastKnownLocation,MainActivity.this);
+                    if (!askedNearTrack) {
+                        checkNearestTrack(lastKnownLocation, MainActivity.this);
                     }
 
                     Snackbar.make(view, "Location tracking started", Snackbar.LENGTH_SHORT)
@@ -366,9 +372,9 @@ public class MainActivity extends AppCompatActivity
         return dateTimeFormatter.format(calendar.getTime());
     }
 
-    public void checkFAB(){
+    public void checkFAB() {
         FloatingActionButton fab = findViewById(R.id.fab);
-        if(!tracking){
+        if (!tracking) {
             fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.ic_stop_watch));
         } else {
             fab.setImageDrawable(ContextCompat.getDrawable(getApplicationContext(), R.drawable.ic_stop_watch_off));
@@ -395,7 +401,7 @@ public class MainActivity extends AppCompatActivity
                 if (importingDB) {
                     importDB();
                 } else {
-                    exportDB();
+                    showFileName();
                 }
 
 
@@ -675,6 +681,36 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    public void shieldClicked(View view) {
+        LinearLayout fileNameLL = findViewById(R.id.fileNameLL);
+        if (fileNameLL.isShown()) {
+            hideFileName();
+        }
+    }
+
+    public void showFileName(){
+        // TO-DO add shield and back press check
+        LinearLayout fileNameLL = findViewById(R.id.fileNameLL);
+        fileNameLL.setVisibility(View.VISIBLE);
+        ImageView shield = findViewById(R.id.shield);
+        shield.setVisibility(View.VISIBLE);
+        InputMethodManager imm = (InputMethodManager)   getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
+    }
+
+    public void hideFileName(){
+        ImageView shield = findViewById(R.id.shield);
+        LinearLayout fileNameLL = findViewById(R.id.fileNameLL);
+        fileNameLL.setVisibility(View.INVISIBLE);
+        shield.setVisibility(View.INVISIBLE);
+        // hide keyboard
+        View thisView = this.getCurrentFocus();
+        if (thisView != null) {
+            InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(thisView.getWindowToken(), 0);
+        }
+    }
+
     public void backupDB() {
         importingDB = true;
         int REQUEST_ID_MULTIPLE_PERMISSIONS = 1;
@@ -690,16 +726,28 @@ public class MainActivity extends AppCompatActivity
             Log.i("exportTrip", "listPermissionsNeeded !=");
         } else {
             Log.i("exportTrip", "exporting!");
-            exportDB();
+            showFileName();
         }
     }
 
-    public void exportDB() {
+    public void fileNameClicked(View view){
+        EditText fileNameET = findViewById(R.id.fileNameET);
+        String fileName = fileNameET.getText().toString();
+        // removes characters that shouldn't be in a filename
+        if (fileName.matches(".*['^*&%\\s.+$'].*")) {
+            fileName = fileName.replaceAll("['^*&%\\s.+$']", "");
+        }
+        // save it lower case
+        exportDB(fileName.toLowerCase());
+        hideFileName();
+    }
+
+    public void exportDB(String fileName) {
         Log.i("exportDB", "Starting");
         File sd = Environment.getExternalStorageDirectory();
         File data = Environment.getDataDirectory();
-        FileChannel source = null;
-        FileChannel destination = null;
+        final FileChannel[] source = {null};
+        final FileChannel[] destination = {null};
 
         File dir = new File(Environment.getExternalStorageDirectory() + "/LapTimerBuddy/");
         try {
@@ -714,20 +762,46 @@ public class MainActivity extends AppCompatActivity
         }
 
         String currentDBPath = "/data/com.androidandyuk.laptimerbuddy/databases/sessions";
-        String backupDBPath = "LapTimerBuddy/LapTimer.db";
-        File currentDB = new File(data, currentDBPath);
-        File backupDB = new File(sd, backupDBPath);
-        try {
-            source = new FileInputStream(currentDB).getChannel();
-            destination = new FileOutputStream(backupDB).getChannel();
-            destination.transferFrom(source, 0, source.size());
-            source.close();
-            destination.close();
-            Snackbar.make(findViewById(R.id.main), "DB Exported!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Snackbar.make(findViewById(R.id.main), "Exported Failed!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+        String backupDBPath = "LapTimerBuddy/" + fileName + ".db";
+        final File currentDB = new File(data, currentDBPath);
+        final File backupDB = new File(sd, backupDBPath);
+
+        if(backupDB.exists()){
+
+            new AlertDialog.Builder(MainActivity.this)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setTitle("File Already Exists")
+                    .setMessage("Would you like to overwrite this file?")
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                            try {
+                                source[0] = new FileInputStream(currentDB).getChannel();
+                                destination[0] = new FileOutputStream(backupDB).getChannel();
+                                destination[0].transferFrom(source[0], 0, source[0].size());
+                                source[0].close();
+                                destination[0].close();
+                                Snackbar.make(findViewById(R.id.main), "DB Exported!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                Snackbar.make(findViewById(R.id.main), "Exported Failed!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+                            }
+
+                        }
+                    })
+                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                            showFileName();
+
+                        }
+                    })
+                    .show();
+
         }
+
     }
 
     public void restoreDB() {
@@ -750,6 +824,71 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void importDB() {
+
+        Uri selectedUri = Uri.parse(Environment.getExternalStorageDirectory().getPath() + "/LapTimerBuddy/");
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+//        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setDataAndType(selectedUri, "*/db");
+        Intent i = Intent.createChooser(intent, "File");
+        startActivityForResult(i, CHOOSE_FILE_REQUESTCODE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+        switch(requestCode){
+            case CHOOSE_FILE_REQUESTCODE:
+                if(resultCode==-1){
+                    Uri uri = data.getData();
+                    String yourDbFileNamePresentInSDCard = uri.getPath();
+
+
+
+                    Log.i("ImportDB", "Started");
+                    try {
+                        String DB_PATH = "/data/data/com.androidandyuk.laptimerbuddy/databases/sessions";
+
+//                        File sdcard = Environment.getExternalStorageDirectory();
+//                        yourDbFileNamePresentInSDCard = sdcard.getAbsolutePath() + File.separator + "LapTimerBuddy/LapTimer.db";
+
+                        Log.i("ImportDB", "SDCard File " + yourDbFileNamePresentInSDCard);
+
+                        File file = new File(yourDbFileNamePresentInSDCard);
+                        // Open your local db as the input stream
+                        InputStream myInput = new FileInputStream(file);
+
+                        // Path to created empty db
+                        String outFileName = DB_PATH;
+
+                        // Opened assets database structure
+                        OutputStream myOutput = new FileOutputStream(outFileName);
+
+                        // transfer bytes from the inputfile to the outputfile
+                        byte[] buffer = new byte[1024];
+                        int length;
+                        while ((length = myInput.read(buffer)) > 0) {
+                            myOutput.write(buffer, 0, length);
+                        }
+
+                        // Close the streams
+                        myOutput.flush();
+                        myOutput.close();
+                        myInput.close();
+                    } catch (Exception e) {
+                        Log.i("ImportDB", "Exception Caught" + e);
+                    }
+                    loadSessions();
+                    Snackbar.make(findViewById(R.id.main), "DB Imported", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+
+                }
+                break;
+        }
+
+
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    public void importDBold() {
         Log.i("ImportDB", "Started");
         try {
             String DB_PATH = "/data/data/com.androidandyuk.laptimerbuddy/databases/sessions";
@@ -790,9 +929,12 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        LinearLayout fileNameLL = findViewById(R.id.fileNameLL);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
-        } else if (tracking) {
+        } else if (fileNameLL.isShown()) {
+            hideFileName();
+        }else if (tracking) {
             Intent startMain = new Intent(Intent.ACTION_MAIN);
             startMain.addCategory(Intent.CATEGORY_HOME);
             startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -940,7 +1082,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onDestroy() {
-        if(!tracking) {
+        if (!tracking) {
             stopLocationService();
         }
         super.onDestroy();
